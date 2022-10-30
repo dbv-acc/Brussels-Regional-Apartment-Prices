@@ -1,3 +1,5 @@
+# install.packages(c("tidyverse","readxl","dplyr","sf","viridis","ggthemes","ggrepel","lintr","dbplyr","scales"))
+
 library(tidyverse)
 library(readxl)
 library(dplyr)
@@ -9,9 +11,10 @@ library(lintr)
 library(dbplyr)
 library(scales)
 
-###MAP CODING
-#Import Shp file and plot
-shpfile <- "Brussels Real Estate/geo.be/municipality_3812.shp" #path to file
+
+###MAP CODING - Import Shp file and plot
+
+shpfile <- "Brussels Real Estate/geo.be/municipality_3812.shp"
 emptymap <- st_read(dsn = shpfile) #read the shp format into R
 plot(emptymap$geometry) #plot the geometry column
 emptymap <- emptymap %>%
@@ -19,11 +22,13 @@ emptymap <- emptymap %>%
 
 ###DATA CODING
 #Importing Municipality Date and first filter
-dat_original <- read.csv("Brussels Real Estate/export.csv")
 
-#ORIGINAL DAT & rename columns and values
-dat <-
-  dat_original %>%
+df_raw <- read.csv("Brussels Real Estate/export.csv")
+
+### DATA WRANGLING
+#rename columns and values
+df <-
+  df_raw %>%
     rename(
       Year = Année,
       Building.type = Type.de.bâtiment,
@@ -37,77 +42,79 @@ dat <-
     mutate(Commune_short = Commune)
 
 #Add shortened Names
-dat$Commune_short <- as.character(dat$Commune_short)
-dat$Commune_short[dat$Commune_short == "Berchem-Sainte-Agathe"] <- "Berchem"
-dat$Commune_short[dat$Commune_short == "Forest (Bruxelles-Capitale)"] <- "Forest"
-dat$Commune_short[dat$Commune_short == "Molenbeek-Saint-Jean"] <- "Molenbeek"
-dat$Commune_short[dat$Commune_short == "Saint-Josse-ten-Noode"] <- "St-Josse"
-dat$Commune_short[dat$Commune_short == "Watermael-Boitsfort"] <- "Boitsfort"
-dat$Commune_short[dat$Commune_short == "Bruxelles"] <- "Bxl"
-dat$Commune_short[dat$Commune_short == "Woluwe-Saint-Pierre"] <- "WSP"
-dat$Commune_short[dat$Commune_short == "Woluwe-Saint-Lambert"] <- "WSL"
-dat$Commune_short <- as.factor(dat$Commune_short)
+df$Commune_short <- as.character(df$Commune_short)
+df$Commune_short[df$Commune_short == "Berchem-Sainte-Agathe"] <- "Berchem"
+df$Commune_short[df$Commune_short == "Forest (Bruxelles-Capitale)"] <- "Forest"
+df$Commune_short[df$Commune_short == "Molenbeek-Saint-Jean"] <- "Molenbeek"
+df$Commune_short[df$Commune_short == "Saint-Josse-ten-Noode"] <- "St-Josse"
+df$Commune_short[df$Commune_short == "Watermael-Boitsfort"] <- "Boitsfort"
+df$Commune_short[df$Commune_short == "Bruxelles"] <- "Bxl"
+df$Commune_short[df$Commune_short == "Woluwe-Saint-Pierre"] <- "WSP"
+df$Commune_short[df$Commune_short == "Woluwe-Saint-Lambert"] <- "WSL"
+df$Commune_short <- as.factor(df$Commune_short)
 
 
-##CLEANING
 #Translate Values
-dat$Building.type <- as.character(dat$Building.type)
-dat$Building.type[dat$Building.type == "Maisons avec 2 ou 3 façades (type fermé + type demi-fermé)"] <- "Terraced or Semi-terraced"
-dat$Building.type[dat$Building.type == "Appartements"] <- "Apartments"
-dat$Building.type <- as.factor(dat$Building.type)
+df$Building.type <- as.character(df$Building.type)
+df$Building.type[df$Building.type == "Maisons avec 2 ou 3 façades (type fermé + type demi-fermé)"] <- "Terraced or Semi-terraced"
+df$Building.type[df$Building.type == "Appartements"] <- "Apartments"
+df$Building.type <- as.factor(df$Building.type)
 
 #Filter out uneeded values
-dat <-
-  dat %>%
+df <-
+  df %>%
     filter(
       !Building.type %in% c("Maisons avec 4 ou plus de façades (type ouvert)") &
       !Sqm %in% c("300-599m²", "600-999m²", "1000-1499m²", ">=1500m²")
           )
-dat <- 
-  dat[!grepl("2è", dat$Semestre),] #Remove 2nd semestre
-dat <- dat %>% select(-Semestre)
+df <- 
+  df[!grepl("2è", df$Semestre),] #Remove 2nd semestre
+df <- df %>% select(-Semestre)
 
-###ALL CLEANING HAS BEEN COMPLETE. NOW LETS CREATE OUR DATAFRAMES
 
-###DF 2022 apartments no nas
-dat_2022_appart_nonas <-
-  dat %>% filter(Year == 2022 &
-                   Building.type == "Apartments" & !is.na(Median.price))
-###DF all years Apartments no nas
-dat_allyears_appart_nonas <-
-  dat %>% filter(Building.type == "Apartments" & !is.na(Median.price))
+###Model creation
 
-###DF % Median Price increase Apartments
-dat_pcincrease_appart <- dat %>% 
+#DF 2022 apartments no nas
+df_2022_appart <-
+  df %>%
+  filter(Year == 2022 & Building.type == "Apartments" & !is.na(Median.price))
+
+df_2022_appart <-
+  left_join(emptymap, df_2022_appart, by = "Commune") %>%
+  filter(!is.na(Year))
+  
+    
+#DF all years Apartments no nas
+df_appart <-
+  df %>% filter(Building.type == "Apartments" & !is.na(Median.price))
+
+df_appart <-
+  left_join(emptymap, df_appart, by = "Commune") %>%
+  filter(!is.na(Year))
+
+
+#DF % Median Price increase Apartments
+df_pcinc_appart <- df %>% 
   select(Commune,Commune_short,Year,Building.type,Sqm,Median.price) %>%
   filter(Building.type=="Apartments" & Sqm=="Superficie inconnue") %>% 
   pivot_wider(names_from = Year,values_from = Median.price)
 
-colnames(dat_pcincrease_appart)[5:17] <- paste("year_",colnames(dat_pcincrease_appart)[5:17],"")
-dat_pcincrease_appart <- dat_pcincrease_appart %>% 
+colnames(df_pcinc_appart)[5:17] <- paste("year_",colnames(df_pcinc_appart)[5:17],"")
+df_pcinc_appart <- df_pcinc_appart %>% 
   mutate('increase2010_2022'=as.integer(((`year_ 2022 `-`year_ 2010 `)/`year_ 2022 `)*100),
          'increase2015_2022'=as.integer(((`year_ 2022 `-`year_ 2015 `)/`year_ 2022 `)*100),
          'increase2020_2022'=as.integer(((`year_ 2022 `-`year_ 2020 `)/`year_ 2022 `)*100)
          )
 
-
-
-###MERGE DATA AND MAP CODING
-dat_2022_appart_nonas_merged <-
-  left_join(emptymap, dat_2022_appart_nonas, by = "Commune") %>%
-  filter(!is.na(Year))
-dat_allyears_appart_nonas_merged <-
-  left_join(emptymap, dat_2022_appart_nonas, by = "Commune") %>%
-  filter(!is.na(Year))
-dat_pcincrease_appart_merged <-
-  left_join(emptymap, dat_pcincrease_appart, by = "Commune") %>%
+df_pcinc_appart <-
+  left_join(emptymap, df_pcinc_appart, by = "Commune") %>%
   filter(!is.na(increase2010_2022))
 
 
-#Create the Map/Plot
-###MAP Dat_2022
+###Create Visuals
+#MAP Df_2022
 theme_set(theme_map(base_size = 20)) #Set the map theme
-ggplot(dat_2022_appart_nonas_merged) +
+ggplot(df_2022_appart) +
   geom_sf(aes(fill = Median.price)) +
   coord_sf(datum = NA) +
   scale_fill_distiller(palette = "RdYlGn",
@@ -121,8 +128,8 @@ ggplot(dat_2022_appart_nonas_merged) +
         legend.key.size = unit(5, "mm"))
 
 
-###Bar chart of Median Price houses in 2021
-dat %>% filter(Year %in% c(2021) &
+#Bar chart of Median Price houses in 2021
+df %>% filter(Year %in% c(2021) &
                   Sqm == "100-299m²" &
                   Building.type == "Terraced or Semi-terraced") %>%
         ggplot(aes(x = reorder(Commune, Median.price), y = Median.price)) +
@@ -131,9 +138,9 @@ dat %>% filter(Year %in% c(2021) &
                 theme_base()
 
 
-###MAP Dat_increase 2010 2022
+#MAP Dat_increase 2010 2022
 theme_set(theme_map(base_size = 20)) #Set the map theme
-ggplot(dat_pcincrease_appart_merged) +
+ggplot(df_pcinc_appart) +
   geom_sf(aes(fill = increase2010_2022)) +
   coord_sf(datum = NA) +
   scale_fill_distiller(palette = "RdYlGn",
@@ -146,8 +153,8 @@ ggplot(dat_pcincrease_appart_merged) +
   theme(legend.position = c(0.95, 0.6),
         legend.key.size = unit(5, "mm"))
 
-###MAP Dat_increase 2015 2022
-ggplot(dat_pcincrease_appart_merged) +
+#MAP Dat_increase 2015 2022
+ggplot(df_pcinc_appart) +
   geom_sf(aes(fill = increase2015_2022)) +
   coord_sf(datum = NA) +
   scale_fill_distiller(palette = "RdYlGn",
@@ -160,8 +167,8 @@ ggplot(dat_pcincrease_appart_merged) +
   theme(legend.position = c(0.95, 0.6),
         legend.key.size = unit(5, "mm"))
 
-###MAP Dat_increase 2020 2022
-ggplot(dat_pcincrease_appart_merged) +
+#MAP Dat_increase 2020 2022
+ggplot(df_pcinc_appart) +
   geom_sf(aes(fill = increase2020_2022)) +
   coord_sf(datum = NA) +
   scale_fill_distiller(palette = "RdYlGn",
@@ -174,8 +181,8 @@ ggplot(dat_pcincrease_appart_merged) +
   theme(legend.position = c(0.95, 0.6),
         legend.key.size = unit(5, "mm"))
 
-###LINE Dat_all communes
-dat_allyears_appart_nonas %>% 
+#LINE Dat_all communes
+df_appart %>% 
   filter(Commune_short %in% c("St-Josse","Ixelles","WSP","Forest","Saint-Gilles","Uccle")) %>%
   ggplot(aes(x=as.factor(Year),y=Median.price,group=Commune_short,color=Commune_short)) +
   geom_line() +
@@ -185,3 +192,19 @@ dat_allyears_appart_nonas %>%
   ggthemes::theme_economist()
   
   
+###Adding Taux d'interets
+
+df_intRates_raw <- read.csv("Brussels Real Estate/MIRCCO_30102022155824566.csv")
+
+df_intRates <- df_intRates_raw %>% 
+  select(-Flags,-Flag.Codes,-MIRCCO_AREA,-MIRCCO_SECTOR,-Secteur,-MIRCCO_INSTRUMENT,-MIRCCO_MATURITY,-FREQUENCY,-Fréquence) %>%
+  filter(Région=="Belgique",Instrument=="Inférieur à 1 million d'euros")
+
+#notes-need to clean dates then split df into 3 tables by grouping maturity
+
+
+####MIR: Taux d'intérêt sur les nouveaux crédits  https://stat.nbb.be/Index.aspx?DataSetCode=MIRCCO&lang=fr#
+##C:\Users\danie\OneDrive\Documents\Data Science\projects\solidboom\Brussels Real Estate MIRCCO
+
+####https://data.oecd.org/price/producer-price-indices-ppi.htm
+###https://data.oecd.org/interest/short-term-interest-rates.htm
