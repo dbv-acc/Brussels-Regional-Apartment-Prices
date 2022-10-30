@@ -1,2 +1,5 @@
 # solidboom
-Public Repo with personal projects
+Public Repo with personal projects.
+
+testing line
+
