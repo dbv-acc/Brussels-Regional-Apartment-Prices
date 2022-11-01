@@ -67,6 +67,9 @@ df <-
       !Building.type %in% c("Maisons avec 4 ou plus de façades (type ouvert)") &
       !Sqm %in% c("300-599m²", "600-999m²", "1000-1499m²", ">=1500m²")
           )
+
+df_lr<-df
+
 df <- 
   df[!grepl("2è", df$Semestre),] #Remove 2nd semestre
 df <- df %>% select(-Semestre)
@@ -197,10 +200,41 @@ df_appart %>%
 df_intRates_raw <- read.csv("Brussels Real Estate/MIRCCO_30102022155824566.csv")
 
 df_intRates <- df_intRates_raw %>% 
-  select(-Flags,-Flag.Codes,-MIRCCO_AREA,-MIRCCO_SECTOR,-Secteur,-MIRCCO_INSTRUMENT,-MIRCCO_MATURITY,-FREQUENCY,-Fréquence) %>%
-  filter(Région=="Belgique",Instrument=="Inférieur à 1 million d'euros")
+  filter(Région=="Belgique",Instrument=="Inférieur à 1 million d'euros") %>%
+  select(-Région ,-Flags,-Flag.Codes,-MIRCCO_AREA,-MIRCCO_SECTOR,-Secteur,-MIRCCO_INSTRUMENT,-MIRCCO_MATURITY,-FREQUENCY,-Fréquence,-Temps)
+  
 
-#notes-need to clean dates then split df into 3 tables by grouping maturity
+df_intRates$TIME <- paste0(df_intRates$TIME,"-01")
+df_intRates$Date <- as.Date(df_intRates$TIME, format = "%Y-%m-%d") 
+df_intRates <- select(df_intRates,-TIME)
+
+df_intRates %>% ggplot(aes(x=Date,y=Value,group=Maturité,color=Maturité))+
+  geom_line()
+
+
+#need to look at Raw again and keep the quarters, then convert to date format
+
+df_lr <- df_lr %>%
+  filter(Sqm=="Superficie inconnue" & Building.type=="Apartments")%>%
+  select(-Building.type,-Sqm)
+
+df_lr <- df_lr %>%
+    mutate(Semestre = case_when(str_detect(Semestre, "^1er")~ "01-01",
+                            str_detect(Semestre, "^2") ~ "07-01",
+                            TRUE~ "na"))
+df_lr$Year <- paste(df_lr$Year,"-",df_lr$Semestre)
+df_lr$Date <- as.Date(df_lr$Year, format = "%Y - %m-%d") 
+df_lr <- df_lr %>%
+  select(-Year,-Semestre)
+
+df_lm <-
+  full_join(df_lr, filter(df_intRates,str_detect(Maturité,"supérieure à 5 ans")), by = "Date")
+
+model=lm(Median.price ~ Value + Date,df_lm)
+anova(model)
+summary(model)
+#notes-may need to take avg rate per semestre for interest rates
+##bring in next meausre
 
 
 ####MIR: Taux d'intérêt sur les nouveaux crédits  https://stat.nbb.be/Index.aspx?DataSetCode=MIRCCO&lang=fr#
