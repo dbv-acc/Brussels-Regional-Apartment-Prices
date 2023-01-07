@@ -1,15 +1,9 @@
-# install.packages(c("tidyverse","readxl","dplyr","sf","viridis","ggthemes","ggrepel","lintr","dbplyr","scales"))
-
 library(tidyverse)
-library(readxl)
-library(sf) #Simple Features. This is the map-maker
-library(viridis)  #Nicer colors
-library(ggthemes) #Nice theme for maps
-#library(ggrepel)
-#library(lintr)
-#library(dbplyr)
-library(scales)
-
+library(sf)        #Simple Features. This is the map-maker
+library(ggthemes)  #Nice theme for maps
+library(scales)    #to get the euro symbol
+library(grid)      #to add graphs on one page
+library(gridExtra) #to add graphs on one page
 
 ###MAP CODING - Import Shp file and plot
 
@@ -22,7 +16,7 @@ emptymap <- emptymap %>%
 ###DATA CODING
 #Importing Municipality Date and first filter
 
-df_raw <- read.csv("Brussels Real Estate/export.csv")
+df_raw <- read.csv("Brussels Real Estate/bestat_sales_brussels_20230106.csv")
 
 ### DATA WRANGLING
 #rename columns and values
@@ -37,7 +31,6 @@ df <-
       X1st.quartile = X1er.quartile.du.prix,
       X3rd.quartile = X3ème.quartile.du.prix
        ) %>%
-    select(-Trimestre) %>%
     mutate(Commune_short = Commune)
 
 #Add shortened Names
@@ -59,44 +52,36 @@ df$Building.type[df$Building.type == "Maisons avec 2 ou 3 façades (type fermé 
 df$Building.type[df$Building.type == "Appartements"] <- "Apartments"
 df$Building.type <- as.factor(df$Building.type)
 
-#Filter out uneeded values
+#Filter out larger properties
 df <-
   df %>%
     filter(
       !Building.type %in% c("Maisons avec 4 ou plus de façades (type ouvert)") &
       !Sqm %in% c("300-599m²", "600-999m²", "1000-1499m²", ">=1500m²")
           )
-#Year Semestre Column
+#Combine columns Year and Semestre
 df$Year_Semestre <- paste(df$Year, substr(df$Semestre,1,1), sep="_")
 df<- df %>%
   select(-Year,-Semestre)
 
 
 
-
-
 ###Model creation
 
-#DF 2021 apartments no nas
-df_2021_appart <-
+#P1 2022_1 apartments
+P1 <-
   df %>%
-  filter(Year_Semestre == "2021_1" & Building.type == "Apartments" & !is.na(Median.price))
-
-df_2021_appart <-
-  left_join(emptymap, df_2021_appart, by = "Commune") %>%
-  filter(!is.na(Year_Semestre))
+  filter(Year_Semestre == "2022_1" & Building.type == "Apartments" & !is.na(Median.price))
+P1 <- left_join(emptymap,P1, by = "Commune") %>%
+  filter(!is.na(Year_Semestre)) |> select(tgid,everything())
   
-    
-#DF all years Apartments no nas
-df_appart <-
+#P2 All years Apartments
+P2 <-
   df %>% filter(Building.type == "Apartments" & !is.na(Median.price))
-
-df_appart <-
-  left_join(emptymap, df_appart, by = "Commune") %>%
+P2 <- left_join(emptymap, P2, by = "Commune") %>%
   filter(!is.na(Year_Semestre))
 
-
-#DF % Median Price increase Apartments
+#P3 % Median Price increase Apartments
 df_pcinc_appart <- df %>% 
   select(Commune,Commune_short,Year_Semestre,Building.type,Sqm,Median.price) %>%
   filter(Building.type=="Apartments" & Sqm=="Superficie inconnue") %>% 
@@ -106,108 +91,223 @@ colnames(df_pcinc_appart)[5:29] <- paste("year_",colnames(df_pcinc_appart)[5:29]
 df_pcinc_appart <- df_pcinc_appart %>% 
   mutate('increase2010_2022'=as.integer(((`year_ 2022_1 `-`year_ 2010_1 `)/`year_ 2022_1 `)*100),
          'increase2015_2022'=as.integer(((`year_ 2022_1 `-`year_ 2015_1 `)/`year_ 2022_1 `)*100),
-         'increase2020_2022'=as.integer(((`year_ 2022_1 `-`year_ 2020_1 `)/`year_ 2022_1 `)*100)
+         'increase2020_2022'=as.integer(((`year_ 2022_1 `-`year_ 2020_1 `)/`year_ 2022_1 `)*100),
+         'increase2010_2015'=as.integer(((`year_ 2015_1 `-`year_ 2010_1 `)/`year_ 2015_1 `)*100),
+         'increase2015_2020'=as.integer(((`year_ 2020_1 `-`year_ 2015_1 `)/`year_ 2020_1 `)*100)
          )
 
-df_pcinc_appart <-
+P3 <-
   left_join(emptymap, df_pcinc_appart, by = "Commune") %>%
   filter(!is.na(increase2010_2022))
 
 
-#DF 2021 house no nas
-df_2021_house <-
+#P4 2022 house
+P4 <-
   df %>%
-  filter(Year_Semestre == "2021_1" &
+  filter(Year_Semestre == "2022_1" &
            grepl('Terraced', Building.type) &
            grepl("100",Sqm) &
            !is.na(Median.price))
-
-df_2021_house <-
-  left_join(emptymap, df_2021_house, by = "Commune") %>%
+P4 <- 
+  left_join(emptymap, P4, by = "Commune") %>%
   filter(!is.na(Year_Semestre))
 
 
 
 ###Create Visuals
-#MAP Df_2021 Apartments
+#MAP Df_2022 Apartments
 theme_set(theme_map(base_size = 20)) #Set the map theme
-ggplot(df_2021_appart) +
+
+P1_visual <- ggplot(P1) +
   geom_sf(aes(fill = Median.price)) +
   coord_sf(datum = NA) +
-  scale_fill_distiller(palette = "RdYlGn",
-                       name = "EUR",
-                       direction = 1) +
+  scale_fill_distiller(type = "seq",
+                       palette = "RdYlGn",
+                       name = "Euros",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Median Price of Apartments by Commune in Brussels",
-       subtitle = "",
-       caption = "Data: Median Price 1st Semestre 2021") +
-  theme(legend.position = c(0.95, 0.6),
-        legend.key.size = unit(5, "mm"))
+  labs(title = "Median Sale Price of Apartments\nduring 1st Semestre 2022, by Brussels' Commune",
+        subtitle = "",
+        caption = "Data: Belgian national statistical office") +
+  theme(legend.position = c(1.01, 0.6),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="lightgrey"))
+P1_visual
 
 #conclusion: South and East are the most expensive areas for apartments with west being cheapest
-#Map Df_2021
+#Map Df_2022 House
 theme_set(theme_map(base_size = 20)) #Set the map theme
-ggplot(df_2021_house) +
+P4_visual <- ggplot(P4) +
   geom_sf(aes(fill = Median.price)) +
   coord_sf(datum = NA) +
-  scale_fill_distiller(palette = "RdYlGn",
-                       name = "EUR",
-                       direction = 1) +
+  scale_fill_distiller(type = "seq",
+                       palette = "RdYlGn",
+                       name = "Euros",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Median Price of Houses (100-300sqm) by Commune in Brussels",
+  labs(title = "Median Sale Price of Houses (100-299sqm)\nduring 1st Semestre 2022, by Brussels' Commune",
        subtitle = "",
-       caption = "Data: Median Price 1st Semestre 2021") +
-  theme(legend.position = c(0.95, 0.6),
-        legend.key.size = unit(5, "mm"))
+       caption = "Data: Belgian national statistical office") +
+  theme(legend.position = c(1.01, 0.6),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="lightgrey"))
+
+P4_visual
+
 #conclusion: South and East most expensive for average house while Ixelles is by far the most popular
 
-
+###need to clean this up so not overlaying each other
 
 #MAP Dat_increase 2010 2022
 theme_set(theme_map(base_size = 20)) #Set the map theme
-ggplot(df_pcinc_appart) +
+P3_2010_2022_visual <- ggplot(P3) +
   geom_sf(aes(fill = increase2010_2022)) +
   coord_sf(datum = NA) +
-  scale_fill_distiller(palette = "RdYlGn",
-                       name = "% increase",
-                       direction = 1) +
+  scale_fill_distiller(type = "seq",
+                       palette = "RdYlGn",
+                       name = "%",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Percentage increase in Median Price of Apartments by Commune in Brussels",
-       subtitle = "",
+  labs(subtitle = "2010 to 2022",
        caption = "Data: Median Price increase from 2010 to 2022") +
-  theme(legend.position = c(0.95, 0.6),
-        legend.key.size = unit(5, "mm"))
+  theme(legend.position = c(0.01, 0.01),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "snow"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="snow"))
+P3_2010_2022_visual
 #conclusion WSP one of the most expensive has not see big increase
 
 #MAP Dat_increase 2015 2022
-ggplot(df_pcinc_appart) +
+P3_2015_2022_visual <- ggplot(P3) +
   geom_sf(aes(fill = increase2015_2022)) +
   coord_sf(datum = NA) +
-  scale_fill_distiller(palette = "RdYlGn",
-                       name = "% increase",
-                       direction = 1) +
+  scale_fill_distiller(type = "seq",
+                       palette = "RdYlGn",
+                       name = "%",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Percentage increase in Median Price of Apartments by Commune in Brussels",
-       subtitle = "",
+  labs( subtitle = "2015 to 2022",
        caption = "Data: Median Price increase from 2015 to 2022") +
-  theme(legend.position = c(0.95, 0.6),
-        legend.key.size = unit(5, "mm"))
+  theme(legend.position = c(0.01, 0.01),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "snow"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="snow"))
+P3_2015_2022_visual
 
 #MAP Dat_increase 2020 2022
-ggplot(df_pcinc_appart) +
+P3_2020_2022_visual <- ggplot(P3) +
   geom_sf(aes(fill = increase2020_2022)) +
   coord_sf(datum = NA) +
-  scale_fill_distiller(palette = "RdYlGn",
-                       name = "% increase",
-                       direction = 1) +
+  scale_fill_distiller(type = "seq",
+                       limits=c(-1,30),
+                       palette = "RdYlGn",
+                       name = "%",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Percentage increase in Median Price of Apartments by Commune in Brussels",
-       subtitle = "",
+  labs(subtitle = "2020 to 2022",
        caption = "Data: Median Price increase from 2020 to 2022") +
-  theme(legend.position = c(0.95, 0.6),
-        legend.key.size = unit(5, "mm"))
+  theme(legend.position = c(0.01, 0.01),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "snow"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="snow"))
+P3_2020_2022_visual
+
+#MAP Dat_increase 2010 2015
+P3_2010_2015_visual <- ggplot(P3) +
+  geom_sf(aes(fill = increase2010_2015)) +
+  coord_sf(datum = NA) +
+  scale_fill_distiller(type = "seq",
+                       limits=c(-1,30),
+                       palette = "RdYlGn",
+                       name = "%",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
+  geom_sf_label(aes(label = Commune_short), label.size = NA) +
+  labs(subtitle = "2010 to 2015",
+       caption = "Data: Median Price increase from 2010 to 2015") +
+  theme(legend.position = c(0.01, 0.01),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "snow"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="snow"))
+P3_2010_2015_visual
+
+
+#MAP Dat_increase 2015 2020
+P3_2015_2020_visual <- ggplot(P3) +
+  geom_sf(aes(fill = increase2015_2020)) +
+  coord_sf(datum = NA) +
+  scale_fill_distiller(type = "seq",
+                       limits=c(-1,30),
+                       palette = "RdYlGn",
+                       name = "%",
+                       direction = 1,
+                       na.value = "grey",
+                       guide = guide_legend (reverse=TRUE),
+                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
+  geom_sf_label(aes(label = Commune_short), label.size = NA) +
+  labs(subtitle = "2015 to 2020",
+       caption = "Data: Median Price increase from 2015 to 2020") +
+  theme(legend.position = c(0.01, 0.01),
+        legend.key.size = unit(5, "mm"),
+        legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "snow"),
+        plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        panel.background = element_rect(fill="snow"))
+P3_2015_2020_visual
+
+
+
+
+
 #conclusion starting to see increas in the north
 
+thegrid <- grid.arrange(P3_2010_2015_visual,
+             P3_2015_2020_visual,
+             P3_2020_2022_visual,
+             nrow=1,
+             top = textGrob("% increase in Median Sale Price\nof Apartments by Brussels' Commune",gp=gpar(fontsize=20,font=3)))
+thegrid
 #LINE Dat_all communes
 df_appart %>% 
   filter(Commune_short %in% c("Jette","Ixelles","WSP","Anderlecht","St-Josse") & grepl("_1",Year_Semestre)) %>%
@@ -254,6 +354,7 @@ df_lm <-
 
 mod1<-aov(Median.price ~ Commune_short,df_lm)
 summary(mod1)
+
 #t.test(Median.price ~ Commune_short,df_lm) #need just 2 groupings
 
 #model=lm(Median.price ~ Median_Value + Commune_short,filter(df_lm,!Commune_short %in% c("Evere","Bxl","Schaerbeek","Berchem","Anderlecht","Koekelberg","Molenbeek","Saint-Gilles","Ganshoren","Jette","St-Josse")))
@@ -286,3 +387,4 @@ df_lm %>%
 ###https://data.oecd.org/interest/short-term-interest-rates.htm
 
 ###test to see if github works
+
