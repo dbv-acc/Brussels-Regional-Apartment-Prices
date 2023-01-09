@@ -129,13 +129,14 @@ P1_visual <- ggplot(P1) +
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Median Sale Price of Apartments\nduring 1st Semestre 2022, by Brussels' Commune",
-        subtitle = "",
+  labs( subtitle = "Apartments",
         caption = "Data: Belgian national statistical office") +
-  theme(legend.position = c(1.01, 0.6),
+  theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
         legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "lightgrey"),
         plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
         plot.caption = element_text(hjust = 0.5,size = 10),
         panel.background = element_rect(fill="lightgrey"))
 P1_visual
@@ -154,14 +155,15 @@ P4_visual <- ggplot(P4) +
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(title = "Median Sale Price of Houses (100-299sqm)\nduring 1st Semestre 2022, by Brussels' Commune",
-       subtitle = "",
+  labs(subtitle = "Houses (100-299sqm)",
        caption = "Data: Belgian national statistical office") +
-  theme(legend.position = c(1.01, 0.6),
+  theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
         legend.title = element_text(size=15,face="bold"),
+        legend.background = element_rect(fill = "lightgrey"),
         plot.title = element_text(hjust=0.5,size=20),
         plot.caption = element_text(hjust = 0.5,size = 10),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
         panel.background = element_rect(fill="lightgrey"))
 
 P4_visual
@@ -233,9 +235,9 @@ P3_2020_2022_visual <- ggplot(P3) +
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(subtitle = "2020 to 2022",
-       caption = "Data: Median Price increase from 2020 to 2022") +
-  theme(legend.position = c(0.01, 0.01),
+  labs(subtitle = "2020 to 2022")+
+       # caption = "Data: Median Price increase from 2020 to 2022") +
+  theme(legend.position = "none",
         legend.key.size = unit(5, "mm"),
         legend.title = element_text(size=15,face="bold"),
         legend.background = element_rect(fill = "snow"),
@@ -258,8 +260,8 @@ P3_2010_2015_visual <- ggplot(P3) +
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(subtitle = "2010 to 2015",
-       caption = "Data: Median Price increase from 2010 to 2015") +
+  labs(subtitle = "2010 to 2015")+
+       # caption = "Data: Median Price increase from 2010 to 2015") +
   theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
         legend.title = element_text(size=15,face="bold"),
@@ -284,9 +286,9 @@ P3_2015_2020_visual <- ggplot(P3) +
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(subtitle = "2015 to 2020",
-       caption = "Data: Median Price increase from 2015 to 2020") +
-  theme(legend.position = c(0.01, 0.01),
+  labs(subtitle = "2015 to 2020") +
+       # caption = "Data: Median Price increase from 2015 to 2020") +
+  theme(legend.position = "none",
         legend.key.size = unit(5, "mm"),
         legend.title = element_text(size=15,face="bold"),
         legend.background = element_rect(fill = "snow"),
@@ -302,14 +304,43 @@ P3_2015_2020_visual
 
 #conclusion starting to see increas in the north
 
-thegrid <- grid.arrange(P3_2010_2015_visual,
+
+perc_inc_grid <- grid.arrange(P3_2010_2015_visual,
              P3_2015_2020_visual,
              P3_2020_2022_visual,
              nrow=1,
-             top = textGrob("% increase in Median Sale Price\nof Apartments by Brussels' Commune",gp=gpar(fontsize=20,font=3)))
-thegrid
+             top = textGrob("% increase in Median Sale Price\nof Apartments by Brussels' Commune",gp=gpar(fontsize=20,font=3))
+             )
+
+grid_2022 <- grid.arrange(P1_visual,
+                              P4_visual,
+                              nrow=1,
+                              top = textGrob("Median Sale Price during 1st Semestre 2022, by Brussels' Commune\n",gp=gpar(fontsize=20,font=3))
+)
+
+#images and plots
+# open image
+grid_2022
+perc_inc_grid
+P3_2010_2022_visual
+
+
+####Below I am working on, i would like to create a bar chart of all communes showing median price as well as lines for quartiles
+and
+woluwe
+pivot_apartments <- df %>% filter(Building.type == "Apartments" &
+                                    !is.na(Median.price) &
+                                    Year_Semestre == "2022_1") |> 
+                          select("Commune_short","Median.price","X1st.quartile","X3rd.quartile") |> 
+                          pivot_longer(!Commune_short,names_to = "Value_Type",values_to = "Price") 
+
+pivot_apartments |> filter(Commune_short=="Anderlecht" | Commune_short=="WSP") |>  
+ggplot(aes(x=reorder(Commune_short,Price),y=Price, fill=Value_Type))+
+  geom_bar(stat = "identity",position = "dodge")+
+  theme_base()
+
 #LINE Dat_all communes
-df_appart %>% 
+P2 %>% 
   filter(Commune_short %in% c("Jette","Ixelles","WSP","Anderlecht","St-Josse") & grepl("_1",Year_Semestre)) %>%
   ggplot(aes(x=as.factor(Year_Semestre),y=Median.price,group=Commune_short,color=Commune_short)) +
   geom_line(size=1.5) +
@@ -317,7 +348,13 @@ df_appart %>%
   scale_y_continuous(name="Average Price", labels=dollar_format(suffix="€",prefix="")) +
   scale_x_discrete(name="Year")+
   ggthemes::theme_economist()
+
+P2
+
 #gap between south and east is the same if not getting bigger. we also see Ixelles since 2107 increasing a great deal  
+
+
+view(P1)
   
 ###MODEL1 -Adding Taux d'interets
 
