@@ -5,7 +5,7 @@ library(scales)    #to get the euro symbol
 library(grid)      #to add graphs on one page
 library(gridExtra) #to add graphs on one page
 
-###MAP CODING - Import Shp file and plot
+###Spatial Coding - Import Shp file and plot
 
 shpfile <- "Brussels Real Estate/geo.be/municipality_3812.shp"
 emptymap <- st_read(dsn = shpfile) #read the shp format into R
@@ -66,7 +66,7 @@ df<- df %>%
 
 
 
-###Model creation
+###Plot creation
 
 #P1 2022_1 apartments
 P1 <-
@@ -90,9 +90,9 @@ df_pcinc_appart <- df %>%
 colnames(df_pcinc_appart)[5:29] <- paste("year_",colnames(df_pcinc_appart)[5:29],"")
 df_pcinc_appart <- df_pcinc_appart %>% 
   mutate('increase2010_2022'=as.integer(((`year_ 2022_1 `-`year_ 2010_1 `)/`year_ 2022_1 `)*100),
-         'increase2015_2022'=as.integer(((`year_ 2022_1 `-`year_ 2015_1 `)/`year_ 2022_1 `)*100),
+         'increase2016_2022'=as.integer(((`year_ 2022_1 `-`year_ 2016_1 `)/`year_ 2022_1 `)*100),
          'increase2020_2022'=as.integer(((`year_ 2022_1 `-`year_ 2020_1 `)/`year_ 2022_1 `)*100),
-         'increase2010_2015'=as.integer(((`year_ 2015_1 `-`year_ 2010_1 `)/`year_ 2015_1 `)*100),
+         'increase2010_2016'=as.integer(((`year_ 2015_1 `-`year_ 2010_1 `)/`year_ 2016_1 `)*100),
          'increase2015_2020'=as.integer(((`year_ 2020_1 `-`year_ 2015_1 `)/`year_ 2020_1 `)*100)
          )
 
@@ -115,6 +115,21 @@ P4 <-
 
 
 ###Create Visuals
+#Blank plot
+P1_visual <- ggplot(P1) +
+  geom_sf(aes(fill = Commune)) +
+  coord_sf(datum = NA) +
+  geom_sf_label(aes(label = Commune_short), label.size = NA) +
+    theme(plot.title = element_text(hjust=0.5,size=20),
+        plot.subtitle = element_text(hjust = 0.5,size = 15),
+        plot.caption = element_text(hjust = 0.5,size = 10),
+        legend.position = "none",
+        panel.background = element_rect(fill="lightgrey"))
+P1_visual
+
+
+
+
 #MAP Df_2022 Apartments
 theme_set(theme_map(base_size = 20)) #Set the map theme
 
@@ -133,8 +148,9 @@ P1_visual <- ggplot(P1) +
         caption = "Data: Belgian national statistical office") +
   theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
-        legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "lightgrey"),
+        legend.text = element_text(size = 7),
+        legend.title = element_text(size=10,face="bold"),
+        legend.background = element_rect(fill = 'transparent'),
         plot.title = element_text(hjust=0.5,size=20),
         plot.subtitle = element_text(hjust = 0.5,size = 15),
         plot.caption = element_text(hjust = 0.5,size = 10),
@@ -159,8 +175,9 @@ P4_visual <- ggplot(P4) +
        caption = "Data: Belgian national statistical office") +
   theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
-        legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "lightgrey"),
+        legend.text = element_text(size = 7),
+        legend.background = element_rect(fill='transparent'),
+        legend.title = element_text(size=10,face="bold"),
         plot.title = element_text(hjust=0.5,size=20),
         plot.caption = element_text(hjust = 0.5,size = 10),
         plot.subtitle = element_text(hjust = 0.5,size = 15),
@@ -170,7 +187,6 @@ P4_visual
 
 #conclusion: South and East most expensive for average house while Ixelles is by far the most popular
 
-###need to clean this up so not overlaying each other
 
 #MAP Dat_increase 2010 2022
 theme_set(theme_map(base_size = 20)) #Set the map theme
@@ -186,183 +202,125 @@ P3_2010_2022_visual <- ggplot(P3) +
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
   labs(subtitle = "2010 to 2022",
-       caption = "Data: Median Price increase from 2010 to 2022") +
+       title = "% increase in Median Sale Price\nof Apartments by Brussels' Commune") +
   theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
         legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "snow"),
-        plot.title = element_text(hjust=0.5,size=20),
+        legend.background = element_rect(fill = "transparent"),
+        plot.title = element_text(hjust=0.5,size=17),
         plot.subtitle = element_text(hjust = 0.5,size = 15),
         plot.caption = element_text(hjust = 0.5,size = 10),
         panel.background = element_rect(fill="snow"))
-P3_2010_2022_visual
+
 #conclusion WSP one of the most expensive has not see big increase
 
-#MAP Dat_increase 2015 2022
-P3_2015_2022_visual <- ggplot(P3) +
-  geom_sf(aes(fill = increase2015_2022)) +
+#MAP Dat_increase 2016 2022
+P3_2016_2022_visual <- ggplot(P3) +
+  geom_sf(aes(fill = increase2016_2022)) +
   coord_sf(datum = NA) +
   scale_fill_distiller(type = "seq",
                        palette = "RdYlGn",
+                       limits=c(-1,40),
                        name = "%",
                        direction = 1,
                        na.value = "grey",
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs( subtitle = "2015 to 2022",
-       caption = "Data: Median Price increase from 2015 to 2022") +
+  labs( subtitle = "2016 to 2022")+
+       # caption = "Data: Median Price increase from 2016 to 2022") +
   theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
-        legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "snow"),
+        legend.title = element_text(size=10,face="bold"),
+        legend.text = element_text(size = 7),
+        legend.background = element_rect(fill = "transparent"),
         plot.title = element_text(hjust=0.5,size=20),
         plot.subtitle = element_text(hjust = 0.5,size = 15),
         plot.caption = element_text(hjust = 0.5,size = 10),
         panel.background = element_rect(fill="snow"))
-P3_2015_2022_visual
 
-#MAP Dat_increase 2020 2022
-P3_2020_2022_visual <- ggplot(P3) +
-  geom_sf(aes(fill = increase2020_2022)) +
+
+
+#MAP Dat_increase 2010 2016
+P3_2010_2016_visual <- ggplot(P3) +
+  geom_sf(aes(fill = increase2010_2016)) +
   coord_sf(datum = NA) +
   scale_fill_distiller(type = "seq",
-                       limits=c(-1,30),
                        palette = "RdYlGn",
+                       limits=c(-1,40),
                        name = "%",
                        direction = 1,
                        na.value = "grey",
                        guide = guide_legend (reverse=TRUE),
                        labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
   geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(subtitle = "2020 to 2022")+
-       # caption = "Data: Median Price increase from 2020 to 2022") +
-  theme(legend.position = "none",
-        legend.key.size = unit(5, "mm"),
-        legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "snow"),
-        plot.title = element_text(hjust=0.5,size=20),
-        plot.subtitle = element_text(hjust = 0.5,size = 15),
-        plot.caption = element_text(hjust = 0.5,size = 10),
-        panel.background = element_rect(fill="snow"))
-P3_2020_2022_visual
-
-#MAP Dat_increase 2010 2015
-P3_2010_2015_visual <- ggplot(P3) +
-  geom_sf(aes(fill = increase2010_2015)) +
-  coord_sf(datum = NA) +
-  scale_fill_distiller(type = "seq",
-                       limits=c(-1,30),
-                       palette = "RdYlGn",
-                       name = "%",
-                       direction = 1,
-                       na.value = "grey",
-                       guide = guide_legend (reverse=TRUE),
-                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
-  geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(subtitle = "2010 to 2015")+
-       # caption = "Data: Median Price increase from 2010 to 2015") +
+  labs(subtitle = "2010 to 2016")+
+       # caption = "Data: Median Price increase from 2010 to 2016") +
   theme(legend.position = c(0.01, 0.01),
         legend.key.size = unit(5, "mm"),
-        legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "snow"),
+        legend.title = element_text(size=10,face="bold"),
+        legend.text = element_text(size = 7),
+        legend.background = element_rect(fill = "transparent"),
         plot.title = element_text(hjust=0.5,size=20),
         plot.subtitle = element_text(hjust = 0.5,size = 15),
         plot.caption = element_text(hjust = 0.5,size = 10),
         panel.background = element_rect(fill="snow"))
-P3_2010_2015_visual
-
-
-#MAP Dat_increase 2015 2020
-P3_2015_2020_visual <- ggplot(P3) +
-  geom_sf(aes(fill = increase2015_2020)) +
-  coord_sf(datum = NA) +
-  scale_fill_distiller(type = "seq",
-                       limits=c(-1,30),
-                       palette = "RdYlGn",
-                       name = "%",
-                       direction = 1,
-                       na.value = "grey",
-                       guide = guide_legend (reverse=TRUE),
-                       labels=function(x) format(x, big.mark = ",", scientific = FALSE)) +
-  geom_sf_label(aes(label = Commune_short), label.size = NA) +
-  labs(subtitle = "2015 to 2020") +
-       # caption = "Data: Median Price increase from 2015 to 2020") +
-  theme(legend.position = "none",
-        legend.key.size = unit(5, "mm"),
-        legend.title = element_text(size=15,face="bold"),
-        legend.background = element_rect(fill = "snow"),
-        plot.title = element_text(hjust=0.5,size=20),
-        plot.subtitle = element_text(hjust = 0.5,size = 15),
-        plot.caption = element_text(hjust = 0.5,size = 10),
-        panel.background = element_rect(fill="snow"))
-P3_2015_2020_visual
-
-
-
-
 
 #conclusion starting to see increas in the north
 
 
-perc_inc_grid <- grid.arrange(P3_2010_2015_visual,
-             P3_2015_2020_visual,
-             P3_2020_2022_visual,
-             nrow=1,
-             top = textGrob("% increase in Median Sale Price\nof Apartments by Brussels' Commune",gp=gpar(fontsize=20,font=3))
+perc_inc_grid1 <- grid.arrange(P3_2010_2016_visual,
+             P3_2016_2022_visual,
+                      nrow=1,
+             top = textGrob("% increase in Median Sale Price\nof Apartments by Brussels' Commune",gp=gpar(fontsize=17,font=3))
              )
+
+P3_2010_2022_visual
 
 grid_2022 <- grid.arrange(P1_visual,
                               P4_visual,
                               nrow=1,
-                              top = textGrob("Median Sale Price during 1st Semestre 2022, by Brussels' Commune\n",gp=gpar(fontsize=20,font=3))
+                              top = textGrob("Median Sale Price 1st Semestre 2022\nby Brussels' Commune\n",gp=gpar(fontsize=17,font=3))
 )
 
-#images and plots
-# open image
-grid_2022
-perc_inc_grid
-P3_2010_2022_visual
-
-
-####Below I am working on, i would like to create a bar chart of all communes showing median price as well as lines for quartiles
-and
-woluwe
-pivot_apartments <- df %>% filter(Building.type == "Apartments" &
-                                    !is.na(Median.price) &
-                                    Year_Semestre == "2022_1") |> 
-                          select("Commune_short","Median.price","X1st.quartile","X3rd.quartile") |> 
-                          pivot_longer(!Commune_short,names_to = "Value_Type",values_to = "Price") 
-
-pivot_apartments |> filter(Commune_short=="Anderlecht" | Commune_short=="WSP") |>  
-ggplot(aes(x=reorder(Commune_short,Price),y=Price, fill=Value_Type))+
-  geom_bar(stat = "identity",position = "dodge")+
-  theme_base()
-
-#LINE Dat_all communes
-P2 %>% 
-  filter(Commune_short %in% c("Jette","Ixelles","WSP","Anderlecht","St-Josse") & grepl("_1",Year_Semestre)) %>%
-  ggplot(aes(x=as.factor(Year_Semestre),y=Median.price,group=Commune_short,color=Commune_short)) +
-  geom_line(size=1.5) +
-  theme_base() +
-  scale_y_continuous(name="Average Price", labels=dollar_format(suffix="€",prefix="")) +
-  scale_x_discrete(name="Year")+
-  ggthemes::theme_economist()
-
-P2
-
-#gap between south and east is the same if not getting bigger. we also see Ixelles since 2107 increasing a great deal  
-
-
-view(P1)
+# ####Below I am working on, i would like to create a bar chart of all communes showing median price as well as lines for quartiles
+# 
+# pivot_apartments <- df %>% filter(Building.type == "Apartments" &
+#                                     !is.na(Median.price) &
+#                                     Year_Semestre == "2022_1") |> 
+#                           select("Commune_short","Median.price","X1st.quartile","X3rd.quartile") |> 
+#                           pivot_longer(!Commune_short,names_to = "Value_Type",values_to = "Price") 
+# 
+# pivot_apartments |> filter(Commune_short=="Anderlecht" | Commune_short=="WSP") |>  
+# ggplot(aes(x=reorder(Commune_short,Price),y=Price, fill=Value_Type))+
+#   geom_bar(stat = "identity",position = "dodge")+
+#   theme_base()
+# 
+# #LINE Dat_all communes
+# P2 %>% 
+#   filter(Commune_short %in% c("Jette","Ixelles","WSP","Anderlecht","St-Josse") & grepl("_1",Year_Semestre)) %>%
+#   ggplot(aes(x=as.factor(Year_Semestre),y=Median.price,group=Commune_short,color=Commune_short)) +
+#   geom_line(size=1.5) +
+#   theme_base() +
+#   scale_y_continuous(name="Average Price", labels=dollar_format(suffix="€",prefix="")) +
+#   scale_x_discrete(name="Year")+
+#   ggthemes::theme_economist()
+# 
+# P2
+# 
+# #gap between south and east is the same if not getting bigger. we also see Ixelles since 2107 increasing a great deal  
+# 
+# 
+# view(P1)
   
 ###MODEL1 -Adding Taux d'interets
 
 df_intRates_raw <- read.csv("Brussels Real Estate/MIRCCO_30102022155824566.csv")
 
 df_intRates <- df_intRates_raw %>% 
-  filter(Région=="Belgique",Instrument=="Inférieur à 1 million d'euros") %>%
-  select(-Région ,-Flags,-Flag.Codes,-MIRCCO_AREA,-MIRCCO_SECTOR,-Secteur,-MIRCCO_INSTRUMENT,-MIRCCO_MATURITY,-FREQUENCY,-Fréquence,-Temps)
+  filter(Région=="Belgique",Instrument=="Inférieur à 1 million d'euros", !startsWith(Maturité,"Taux")) %>%
+  select(-Région ,-Flags,-Flag.Codes,-MIRCCO_AREA,-MIRCCO_SECTOR,-Secteur,-MIRCCO_INSTRUMENT,-MIRCCO_MATURITY,-FREQUENCY,-Fréquence,-Temps) |> 
+  rename(InterestRate = Maturité)
 
 df_intRates <- df_intRates %>% separate(TIME, sep = "-", into = c("Year","Semestre"))
 df_intRates$Semestre<-as.integer(df_intRates$Semestre)
@@ -370,58 +328,18 @@ df_intRates$Semestre[df_intRates$Semestre<7] <- 1
 df_intRates$Semestre[df_intRates$Semestre>6] <- 2
 df_intRates$Year_Semestre <- paste(df_intRates$Year, df_intRates$Semestre, sep="_")
 df_intRates <- df_intRates %>%
-  group_by(Year_Semestre,Maturité) %>%
+  group_by(Year_Semestre,InterestRate) %>%
   summarise(Median_Value=median(Value))
+
+df_intRates$InterestRate[df_intRates$InterestRate == "Fixation initiale du taux d'une durée supérieure à 5 ans"] <- "Fixed rate for longer than 5 years"
+df_intRates$InterestRate[df_intRates$InterestRate == "Fixation initiale du taux d'une durée supérieure à 1 an et inférieure à 5 ans"] <- "Fixed rate between 1 and 5 years"
+
 
 
 df_intRates %>% 
   filter(grepl("_2",Year_Semestre))%>%
-  ggplot(aes(x=Year_Semestre,y=Median_Value,group=Maturité,color=Maturité))+
+  ggplot(aes(x=Year_Semestre,y=Median_Value,group=InterestRate,color=InterestRate))+
   geom_line()+
   theme_minimal()
 #conclusion interest rates have been steadily decreasing until this year
-
-df_lr <- df %>%
-  filter(Sqm=="Superficie inconnue" & Building.type=="Apartments")%>%
-  select(-Building.type,-Sqm)
-
-df_lm <-
-  full_join(df_lr, filter(df_intRates,str_detect(Maturité,"supérieure à 5 ans")), by = "Year_Semestre")
-
-
-mod1<-aov(Median.price ~ Commune_short,df_lm)
-summary(mod1)
-
-#t.test(Median.price ~ Commune_short,df_lm) #need just 2 groupings
-
-#model=lm(Median.price ~ Median_Value + Commune_short,filter(df_lm,!Commune_short %in% c("Evere","Bxl","Schaerbeek","Berchem","Anderlecht","Koekelberg","Molenbeek","Saint-Gilles","Ganshoren","Jette","St-Josse")))
-model=lm(Median.price ~ Median_Value + Commune_short,df_lm)
-
-anova(model)
-summary(model)
-hist(model$residuals)
-plot(model)
-
-
-model2=lm(Median.price ~ Median_Value,filter(df_lm,Commune_short=="Ixelles"))
-
-plot(model)
-summary(model2)
-
-df_lm %>%
-  filter(Commune_short=="Ixelles") %>%
-  ggplot(aes(x=Median_Value,y=Median.price))+
-  geom_point() +
-  theme_base()
-
-#notes- read up and watch videos on R to understand how to read staticial values. 
-##bring in next meausre
-
-
 ####MIR: Taux d'intérêt sur les nouveaux crédits  https://stat.nbb.be/Index.aspx?DataSetCode=MIRCCO&lang=fr#
-
-####https://data.oecd.org/price/producer-price-indices-ppi.htm
-###https://data.oecd.org/interest/short-term-interest-rates.htm
-
-###test to see if github works
-
